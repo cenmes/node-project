@@ -19,7 +19,15 @@ function doQuery(sql,values,callback) {
 router.get('/', function(req, res, next) {
   res.render('index', { title: 'Express' });
 });
-function query(sql,values) {
+// async function getUserInfoByName(res,req) {
+//     let params=getParams(req);
+//     let id=await query("select id from user where username=?",[params.username]);
+//     let userInfo=await query("select name,email,sex,tel from userInfo where id=?",[id]);
+//     res.end({
+//         data:userInfo
+//     });
+// }
+function query(sql,values=[]) {
     let connect=db.createConnection({
         host: 'localhost',
         port:"3306",
@@ -45,8 +53,45 @@ function getParams(req) {
         return req.body
     }
 }
-router.all('/userInfo',function (req,res,next) {
+router.all('/getTables',function (req,res,next) {
+    res.header("Access-Control-Allow-Origin","*");
     let params=getParams(req);
+    query("SELECT table_name FROM information_schema.`TABLES` WHERE TABLE_SCHEMA='mydb'").then(function (rows) {
+        res.json({
+            success:true,
+            data:rows
+        })
+    }).catch(function (error) {
+        res.json({"error":true});
+    });
+});
+router.all('/getTableData',function (req,res,next) {
+    res.header("Access-Control-Allow-Origin","*");
+    let params=getParams(req);
+    let tn=params.tableName;
+    query("select * from "+tn).then(function (rows) {
+        let columns=[];
+        for(let key in rows[0]){
+            columns.push(key);
+        }
+        res.json({
+            data:{
+                columns:columns,
+                rows:rows,
+            },
+            success:"true"
+        })
+    }).catch(function (error) {
+        res.json({"error":true});
+    });
+});
+router.all('/userInfo',function (req,res,next) {
+    // getUserInfoByName(res,req);
+    let params=getParams(req);
+    if(!params.username){
+        res.json({"error":true,'errorMsg':"参数username必填"});
+        return;
+    }
     query('select id from user where username=?',[params.username]).then(function (rows) {
         return query("select name,email,sex,tel from userInfo where id=?",[rows[0].id]);
     }).then(function (rows) {
@@ -55,7 +100,7 @@ router.all('/userInfo',function (req,res,next) {
             "userInfo":rows
         });
     }).catch(function (error) {
-        res.json({"error":true})
+        res.json({"error":true});
     });
 });
 router.all('/menu',function (req,res,next) {
